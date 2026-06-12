@@ -117,17 +117,25 @@ async def ingest_videos(
         ))
 
     # Auto-generate session title
+    callbacks = get_langfuse_callbacks()
     try:
         llm = get_chat_model(streaming=False)
         title_prompt = TITLE_GENERATION_PROMPT.format(urls="\n".join(body.urls))
         title_resp = await llm.ainvoke(
             [HumanMessage(content=title_prompt)],
-            config={"callbacks": get_langfuse_callbacks()}
+            config={"callbacks": callbacks}
         )
         title = title_resp.content.strip()[:60]
         get_supabase().table("sessions").update({"title": title}).eq("id", session_id).execute()
     except Exception as e:
         log.warning("Title generation failed", error=str(e))
+    finally:
+        for cb in callbacks:
+            if hasattr(cb, "_langfuse_client"):
+                try:
+                    cb._langfuse_client.flush()
+                except Exception:
+                    pass
 
     log.info("Ingest complete", session_id=session_id, videos=len(video_metas))
     return IngestResponse(session_id=session_id, videos=video_metas)

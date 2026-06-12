@@ -54,9 +54,10 @@ async def _stream_rag(
         "needs_retrieval": True,
     }
 
+    callbacks = get_langfuse_callbacks()
     config = {
         "configurable": {"thread_id": thread_id},
-        "callbacks": get_langfuse_callbacks(),
+        "callbacks": callbacks,
     }
 
     full_answer = ""
@@ -96,6 +97,14 @@ async def _stream_rag(
     except Exception as e:
         log.error("Streaming error", error=str(e))
         yield f"data: {json.dumps({'type': 'error', 'data': str(e)})}\n\n"
+
+    finally:
+        for cb in callbacks:
+            if hasattr(cb, "_langfuse_client"):
+                try:
+                    cb._langfuse_client.flush()
+                except Exception:
+                    pass
 
 
 @router.post("/chat/stream")
