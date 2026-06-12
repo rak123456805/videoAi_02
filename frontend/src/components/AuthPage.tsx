@@ -1,23 +1,31 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
-import { Zap, Mail, Lock, Eye, EyeOff, X } from "lucide-react";
-import { motion } from "framer-motion";
+import { Zap, Mail, Lock, Eye, EyeOff, X, ShieldCheck, ArrowLeft } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface AuthPageProps {
   onAuth: () => void;
   onClose?: () => void;
+  initialMode?: "login" | "signup" | "forgot_password" | "reset_password";
 }
 
-export function AuthPage({ onAuth, onClose }: AuthPageProps) {
-  const [mode, setMode] = useState<"login" | "signup">("login");
+export function AuthPage({ onAuth, onClose, initialMode = "login" }: AuthPageProps) {
+  const [mode, setMode] = useState<"login" | "signup" | "forgot_password" | "reset_password">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: "error" | "success" } | null>(null);
 
   const supabase = createClient();
+
+  useEffect(() => {
+    setMode(initialMode);
+    setMessage(null);
+  }, [initialMode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,10 +37,29 @@ export function AuthPage({ onAuth, onClose }: AuthPageProps) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         onAuth();
-      } else {
+      } else if (mode === "signup") {
+        if (password !== confirmPassword) {
+          throw new Error("Passwords do not match");
+        }
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         setMessage({ text: "Check your email to confirm your account!", type: "success" });
+      } else if (mode === "forgot_password") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}`,
+        });
+        if (error) throw error;
+        setMessage({ text: "Check your email for the password reset link!", type: "success" });
+      } else if (mode === "reset_password") {
+        if (password !== confirmPassword) {
+          throw new Error("Passwords do not match");
+        }
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) throw error;
+        setMessage({ text: "Your password has been reset successfully!", type: "success" });
+        setTimeout(() => {
+          onAuth();
+        }, 1500);
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Authentication failed";
@@ -42,11 +69,49 @@ export function AuthPage({ onAuth, onClose }: AuthPageProps) {
     }
   };
 
-  const handleGoogle = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin },
-    });
+  const renderTitle = () => {
+    switch (mode) {
+      case "signup":
+        return "Create Account";
+      case "forgot_password":
+        return "Reset Password";
+      case "reset_password":
+        return "New Password";
+      case "login":
+      default:
+        return "Welcome Back";
+    }
+  };
+
+  const renderSubtitle = () => {
+    switch (mode) {
+      case "signup":
+        return "Start comparing and querying your videos";
+      case "forgot_password":
+        return "Enter your email to receive a recovery link";
+      case "reset_password":
+        return "Enter your new credentials below";
+      case "login":
+      default:
+        return "AI-powered video content intelligence";
+    }
+  };
+
+  const renderSubmitButtonText = () => {
+    if (loading) {
+      return <span className="spinner" style={{ borderTopColor: "white" }} />;
+    }
+    switch (mode) {
+      case "signup":
+        return "Create Account";
+      case "forgot_password":
+        return "Send Reset Link";
+      case "reset_password":
+        return "Update Password";
+      case "login":
+      default:
+        return "Sign In";
+    }
   };
 
   return (
@@ -56,141 +121,158 @@ export function AuthPage({ onAuth, onClose }: AuthPageProps) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        style={{ position: "relative" }}
       >
         {onClose && (
           <button
             type="button"
             onClick={onClose}
-            style={{
-              position: "absolute",
-              top: 16,
-              right: 16,
-              background: "none",
-              border: "none",
-              color: "var(--text-muted)",
-              cursor: "pointer",
-            }}
+            className="auth-close-btn"
+            aria-label="Close authentication panel"
           >
             <X size={16} />
           </button>
         )}
 
+        {mode === "forgot_password" && (
+          <button
+            type="button"
+            className="auth-back-btn"
+            onClick={() => {
+              setMode("login");
+              setMessage(null);
+            }}
+          >
+            <ArrowLeft size={14} />
+            Back to Sign In
+          </button>
+        )}
+
         <div className="auth-logo">
-          <div className="auth-logo-icon">
+          <div className="auth-logo-icon animate-pulse-slow">
             <Zap size={28} color="white" />
           </div>
-          <div className="auth-title">ReelRag</div>
-          <div className="auth-sub">
-            AI-powered video content intelligence
-          </div>
+          <div className="auth-title">{renderTitle()}</div>
+          <div className="auth-sub">{renderSubtitle()}</div>
         </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
-          <div>
-            <label className="auth-label">
-              <Mail size={11} style={{ display: "inline", marginRight: 4 }} />
-              Email
-            </label>
-            <input
-              type="email"
-              className="auth-input"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-            />
-          </div>
-
-          <div>
-            <label className="auth-label">
-              <Lock size={11} style={{ display: "inline", marginRight: 4 }} />
-              Password
-            </label>
-            <div style={{ position: "relative" }}>
-              <input
-                type={showPw ? "text" : "password"}
-                className="auth-input"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete={mode === "login" ? "current-password" : "new-password"}
-                style={{ paddingRight: 44 }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPw(!showPw)}
-                style={{
-                  position: "absolute",
-                  right: 12,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  background: "none",
-                  border: "none",
-                  color: "var(--text-muted)",
-                  cursor: "pointer",
-                }}
-              >
-                {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
-              </button>
+          {mode !== "reset_password" && (
+            <div>
+              <label className="auth-label">
+                <Mail size={12} style={{ display: "inline", marginRight: 6, verticalAlign: "middle" }} />
+                Email Address
+              </label>
+              <div className="auth-input-wrapper">
+                <input
+                  type="email"
+                  className="auth-input"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+              </div>
             </div>
-          </div>
+          )}
+
+          {mode !== "forgot_password" && (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <label className="auth-label" style={{ marginBottom: 0 }}>
+                  <Lock size={12} style={{ display: "inline", marginRight: 6, verticalAlign: "middle" }} />
+                  {mode === "reset_password" ? "New Password" : "Password"}
+                </label>
+                {mode === "login" && (
+                  <button
+                    type="button"
+                    className="auth-forgot-link"
+                    onClick={() => {
+                      setMode("forgot_password");
+                      setMessage(null);
+                    }}
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
+              <div className="auth-input-wrapper" style={{ position: "relative" }}>
+                <input
+                  type={showPw ? "text" : "password"}
+                  className="auth-input"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete={mode === "login" ? "current-password" : "new-password"}
+                  style={{ paddingRight: 44 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw(!showPw)}
+                  className="auth-eye-btn"
+                >
+                  {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {(mode === "signup" || mode === "reset_password") && (
+            <div>
+              <label className="auth-label">
+                <ShieldCheck size={12} style={{ display: "inline", marginRight: 6, verticalAlign: "middle" }} />
+                Confirm Password
+              </label>
+              <div className="auth-input-wrapper" style={{ position: "relative" }}>
+                <input
+                  type={showConfirmPw ? "text" : "password"}
+                  className="auth-input"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  autoComplete="new-password"
+                  style={{ paddingRight: 44 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPw(!showConfirmPw)}
+                  className="auth-eye-btn"
+                >
+                  {showConfirmPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+            </div>
+          )}
 
           {message && (
             <div
-              style={{
-                padding: "10px 14px",
-                borderRadius: "var(--radius-sm)",
-                fontSize: 13,
-                background: message.type === "error"
-                  ? "rgba(239,68,68,0.1)"
-                  : "rgba(34,197,94,0.1)",
-                border: `1px solid ${message.type === "error" ? "rgba(239,68,68,0.3)" : "rgba(34,197,94,0.3)"}`,
-                color: message.type === "error" ? "var(--red)" : "var(--green)",
-              }}
+              className={`auth-message-alert ${message.type}`}
             >
               {message.text}
             </div>
           )}
 
           <button type="submit" className="auth-btn" disabled={loading}>
-            {loading ? (
-              <span className="spinner" style={{ borderTopColor: "white" }} />
-            ) : mode === "login" ? (
-              "Sign In"
-            ) : (
-              "Create Account"
-            )}
+            {renderSubmitButtonText()}
           </button>
         </form>
 
-        <div className="auth-divider">
-          <div className="auth-divider-line" />
-          <span className="auth-divider-text">or</span>
-          <div className="auth-divider-line" />
-        </div>
-
-        <button className="auth-google-btn" onClick={handleGoogle}>
-          <svg width="18" height="18" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M23.745 12.27c0-.79-.07-1.54-.19-2.27h-11.3v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"/>
-            <path fill="#34A853" d="M12.255 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96h-3.98v3.09C3.515 21.3 7.615 24 12.255 24z"/>
-            <path fill="#FBBC05" d="M5.525 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62h-3.98a11.86 11.86 0 0 0 0 10.76l3.98-3.09z"/>
-            <path fill="#EA4335" d="M12.255 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C18.205 1.19 15.495 0 12.255 0c-4.64 0-8.74 2.7-10.71 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"/>
-          </svg>
-          Continue with Google
-        </button>
-
-        <p className="auth-toggle">
-          {mode === "login" ? "Don't have an account? " : "Already have an account? "}
-          <button
-            className="auth-toggle-btn"
-            onClick={() => setMode(mode === "login" ? "signup" : "login")}
-          >
-            {mode === "login" ? "Sign up" : "Sign in"}
-          </button>
-        </p>
+        {mode !== "forgot_password" && mode !== "reset_password" && (
+          <p className="auth-toggle">
+            {mode === "login" ? "Don't have an account? " : "Already have an account? "}
+            <button
+              className="auth-toggle-btn"
+              onClick={() => {
+                setMode(mode === "login" ? "signup" : "login");
+                setMessage(null);
+              }}
+            >
+              {mode === "login" ? "Sign up" : "Sign in"}
+            </button>
+          </p>
+        )}
       </motion.div>
     </div>
   );

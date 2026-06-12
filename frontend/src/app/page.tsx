@@ -26,6 +26,7 @@ export default function Home() {
   const [loadingSession, setLoadingSession] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authInitialMode, setAuthInitialMode] = useState<"login" | "signup" | "forgot_password" | "reset_password">("login");
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
   const [detailSession, setDetailSession] = useState<Session | null>(null);
   const [detailVideos, setDetailVideos] = useState<VideoMetadata[]>([]);
@@ -46,9 +47,14 @@ export default function Home() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setToken(session?.access_token ?? null);
       setUserEmail(session?.user?.email ?? null);
+
+      if (event === "PASSWORD_RECOVERY") {
+        setAuthInitialMode("reset_password");
+        setAuthModalOpen(true);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -286,7 +292,10 @@ export default function Home() {
               </>
             ) : (
               <button
-                onClick={() => setAuthModalOpen(true)}
+                onClick={() => {
+                  setAuthInitialMode("login");
+                  setAuthModalOpen(true);
+                }}
                 style={{
                   background: "var(--accent-gradient)",
                   border: "none",
@@ -436,7 +445,10 @@ export default function Home() {
               
               <div style={{ display: "flex", gap: 14, justifyContent: "center", marginTop: 12 }}>
                 <button
-                  onClick={() => setAuthModalOpen(true)}
+                  onClick={() => {
+                    setAuthInitialMode("signup");
+                    setAuthModalOpen(true);
+                  }}
                   className="analyze-btn"
                   style={{ 
                     padding: "12px 28px", 
@@ -452,7 +464,10 @@ export default function Home() {
                   <Zap size={14} fill="white" />
                 </button>
                 <button
-                  onClick={() => setAuthModalOpen(true)}
+                  onClick={() => {
+                    setAuthInitialMode("signup");
+                    setAuthModalOpen(true);
+                  }}
                   style={{
                     background: "var(--bg-elevated)",
                     border: "1px solid var(--border-bright)",
@@ -925,6 +940,7 @@ export default function Home() {
           <AuthPage 
             onAuth={() => setAuthModalOpen(false)} 
             onClose={() => setAuthModalOpen(false)} 
+            initialMode={authInitialMode}
           />
         )}
       </AnimatePresence>
