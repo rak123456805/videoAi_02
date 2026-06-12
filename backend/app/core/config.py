@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     # App
     environment: str = "development"
     log_level: str = "INFO"
-    cors_origins: str = "http://localhost:3000"
+    cors_origins: str = "http://localhost:3000,https://video-ai-02.vercel.app"
 
     # Embedding model
     embedding_model: str = "text-embedding-3-small"
