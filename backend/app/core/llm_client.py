@@ -59,3 +59,23 @@ def get_embeddings() -> Embeddings:
         google_api_key=settings.gemini_api_key,
     )
     return GoogleEmbeddingsWrapper(client, output_dimensionality=1536)
+
+
+def get_langfuse_callbacks() -> list:
+    """Safely initialize the Langfuse langchain callback handler if credentials are set."""
+    settings = get_settings()
+    if not settings.langfuse_public_key or not settings.langfuse_secret_key:
+        log.debug("Langfuse public/secret keys not set. Cost tracking disabled.")
+        return []
+    try:
+        from langfuse.langchain import CallbackHandler
+        handler = CallbackHandler(
+            public_key=settings.langfuse_public_key,
+            secret_key=settings.langfuse_secret_key,
+            host=settings.langfuse_base_url,
+        )
+        log.info("Initialized Langfuse callback handler for cost tracking")
+        return [handler]
+    except Exception as e:
+        log.warning("Failed to initialize Langfuse callback handler", error=str(e))
+        return []

@@ -15,6 +15,7 @@ from app.db.supabase import save_message, get_messages, get_supabase
 from app.rag.graph import get_rag_graph
 from app.rag.state import GraphState
 from app.api.routes.ingest import _get_user_id_from_token
+from app.core.llm_client import get_langfuse_callbacks
 
 log = structlog.get_logger(__name__)
 router = APIRouter()
@@ -53,7 +54,10 @@ async def _stream_rag(
         "needs_retrieval": True,
     }
 
-    config = {"configurable": {"thread_id": thread_id}}
+    config = {
+        "configurable": {"thread_id": thread_id},
+        "callbacks": get_langfuse_callbacks(),
+    }
 
     full_answer = ""
     citations = []

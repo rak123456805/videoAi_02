@@ -11,7 +11,7 @@ from app.db.models import IngestRequest, IngestResponse, VideoMetadataOut
 from app.db.supabase import get_supabase, create_session, upsert_video_metadata, get_video_metadata
 from app.fetchers.router import fetch_video
 from app.vector.embed import embed_and_store
-from app.core.llm_client import get_chat_model
+from app.core.llm_client import get_chat_model, get_langfuse_callbacks
 from app.rag.prompts import TITLE_GENERATION_PROMPT
 from langchain_core.messages import HumanMessage
 
@@ -120,7 +120,10 @@ async def ingest_videos(
     try:
         llm = get_chat_model(streaming=False)
         title_prompt = TITLE_GENERATION_PROMPT.format(urls="\n".join(body.urls))
-        title_resp = await llm.ainvoke([HumanMessage(content=title_prompt)])
+        title_resp = await llm.ainvoke(
+            [HumanMessage(content=title_prompt)],
+            config={"callbacks": get_langfuse_callbacks()}
+        )
         title = title_resp.content.strip()[:60]
         get_supabase().table("sessions").update({"title": title}).eq("id", session_id).execute()
     except Exception as e:

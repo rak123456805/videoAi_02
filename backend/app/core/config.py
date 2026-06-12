@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     cors_origins: str = "http://localhost:3000,https://video-ai-02.vercel.app"
 
+    # Langfuse
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_base_url: str = "https://cloud.langfuse.com"
+
     # Embedding model
     embedding_model: str = "text-embedding-3-small"
     embedding_dim: int = 1536
