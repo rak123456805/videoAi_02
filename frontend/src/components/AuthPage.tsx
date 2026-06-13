@@ -46,7 +46,7 @@ export function AuthPage({ onAuth, onClose, initialMode = "login" }: AuthPagePro
         setMessage({ text: "Check your email to confirm your account!", type: "success" });
       } else if (mode === "forgot_password") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}`,
+          redirectTo: `${window.location.origin}?type=recovery`,
         });
         if (error) throw error;
         setMessage({ text: "Check your email for the password reset link!", type: "success" });

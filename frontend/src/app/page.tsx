@@ -40,9 +40,12 @@ export default function Home() {
 
   useEffect(() => {
     // Check if we arrived here via a password recovery link
-    if (typeof window !== "undefined" && window.location.hash.includes("type=recovery")) {
-      setAuthInitialMode("reset_password");
-      setAuthModalOpen(true);
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("type") === "recovery" || window.location.hash.includes("type=recovery")) {
+        setAuthInitialMode("reset_password");
+        setAuthModalOpen(true);
+      }
     }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
