@@ -38,8 +38,13 @@ export default function Home() {
     }
   };
 
-  // ── Auth ──────────────────────────────────────────────────────────────────
   useEffect(() => {
+    // Check if we arrived here via a password recovery link
+    if (typeof window !== "undefined" && window.location.hash.includes("type=recovery")) {
+      setAuthInitialMode("reset_password");
+      setAuthModalOpen(true);
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setToken(session?.access_token ?? null);
       setUserEmail(session?.user?.email ?? null);
